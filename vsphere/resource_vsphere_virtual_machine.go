@@ -1375,6 +1375,8 @@ func resourceVSphereVirtualMachineCreateClone(d *schema.ResourceData, meta inter
 			fmt.Errorf("error reconfiguring virtual machine: %s", err),
 		)
 	}
+	ctx := context.TODO()
+	vm.UpgradeVM(ctx, "vmx-15")
 
 	var cw *virtualMachineCustomizationWaiter
 	// Send customization spec if any has been defined.

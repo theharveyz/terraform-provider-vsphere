@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
@@ -282,6 +284,13 @@ func schemaVirtualMachineConfigSpec() map[string]*schema.Schema {
 			Type:        schema.TypeString,
 			Optional:    true,
 			Description: "The ID of the storage policy to assign to the virtual machine home directory.",
+		},
+		"hardware_version": {
+			Type:         schema.TypeInt,
+			Optional:     true,
+			ValidateFunc: validation.IntBetween(4, 15),
+			Description:  "The hardware version for the virtual machine.",
+			Default:      15,
 		},
 	}
 	structure.MergeSchema(s, schemaVirtualMachineResourceAllocation())
@@ -802,6 +811,7 @@ func expandVirtualMachineConfigSpec(d *schema.ResourceData, client *govmomi.Clie
 		VPMCEnabled:                  getBoolWithRestart(d, "cpu_performance_counters_enabled"),
 		LatencySensitivity:           expandLatencySensitivity(d),
 		VmProfile:                    expandVirtualMachineProfileSpec(d),
+		Version:                      virtualmachine.GetHardwareVersionID(d.Get("hardware_version").(int)),
 	}
 
 	return obj, nil
@@ -828,6 +838,15 @@ func flattenVirtualMachineConfigInfo(d *schema.ResourceData, obj *types.VirtualM
 	d.Set("cpu_performance_counters_enabled", obj.VPMCEnabled)
 	d.Set("change_version", obj.ChangeVersion)
 	d.Set("uuid", obj.Uuid)
+
+	sv := strings.TrimPrefix(obj.Version, "vmx-")
+	v, err := strconv.Atoi(sv)
+	if err != nil {
+		return err
+	}
+	d.Set("hardware_version", v)
+
+	d.Set("hardware_version", obj.Version)
 
 	if err := flattenToolsConfigInfo(d, obj.Tools); err != nil {
 		return err

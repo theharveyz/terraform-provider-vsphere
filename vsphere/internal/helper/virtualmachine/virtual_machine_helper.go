@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/vmware/govmomi/vapi/library"
 	"github.com/vmware/govmomi/vapi/rest"
 	"github.com/vmware/govmomi/vapi/vcenter"
@@ -712,6 +713,21 @@ func Reconfigure(vm *object.VirtualMachine, spec types.VirtualMachineConfigSpec)
 	return task.Wait(tctx)
 }
 
+
+func UpgradeHardwareVersion(vm *object.VirtualMachine, version int) error {
+	log.Printf("[DEBUG] Upgrading virtual machine %q", vm.InventoryPath)
+	ctx, cancel := context.WithTimeout(context.Background(), provider.DefaultAPITimeout)
+	defer cancel()
+	vm.UpgradeVM(ctx, GetHardwareVersionID(version))
+	task, err := vm.Reconfigure(ctx, spec)
+	if err != nil {
+		return err
+	}
+	tctx, tcancel := context.WithTimeout(context.Background(), provider.DefaultAPITimeout)
+	defer tcancel()
+	return task.Wait(tctx)
+}
+
 // Relocate wraps the Relocate task and the subsequent waiting for the task to
 // complete.
 func Relocate(vm *object.VirtualMachine, spec types.VirtualMachineRelocateSpec, timeout int) error {
@@ -864,4 +880,9 @@ func (r MOIDForUUIDResults) UUIDs() []string {
 		uuids = append(uuids, result.UUID)
 	}
 	return uuids
+}
+
+// Get the hardware version string from integer
+func GetHardwareVersionID(vint int) string {
+	return fmt.Sprintf("vmx-%d", vint)
 }
