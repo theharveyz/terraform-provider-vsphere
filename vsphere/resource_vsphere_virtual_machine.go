@@ -711,6 +711,10 @@ func resourceVSphereVirtualMachineUpdate(d *schema.ResourceData, meta interface{
 			}
 		}
 	}
+
+	// Upgrade the VM's hardware version if needed.
+	virtualmachine.SetHardwareVersion(vm, d)
+
 	// Now safe to turn off partial mode.
 	d.Partial(false)
 	d.Set("reboot_required", false)
@@ -885,6 +889,12 @@ func resourceVSphereVirtualMachineCustomizeDiff(d *schema.ResourceDiff, meta int
 				d.ForceNew(k)
 			}
 		}
+	}
+
+	// Validate hardware version changes.
+	cv, tv := d.GetChange("hardware_version")
+	if tv.(int) < cv.(int) {
+		return fmt.Errorf("Cannot downgrade virtual machine hardware version. current: %s, target: %s", cv, tv)
 	}
 	// Validate that the config has the necessary components for vApp support.
 	// Note that for clones the data is prepopulated in
@@ -1375,8 +1385,9 @@ func resourceVSphereVirtualMachineCreateClone(d *schema.ResourceData, meta inter
 			fmt.Errorf("error reconfiguring virtual machine: %s", err),
 		)
 	}
-	ctx := context.TODO()
-	vm.UpgradeVM(ctx, "vmx-15")
+
+	// Upgrade the VM's hardware version if needed.
+	virtualmachine.SetHardwareVersion(vm, d)
 
 	var cw *virtualMachineCustomizationWaiter
 	// Send customization spec if any has been defined.

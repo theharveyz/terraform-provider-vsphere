@@ -2,11 +2,6 @@ package vsphere
 
 import (
 	"fmt"
-	"log"
-	"reflect"
-	"strconv"
-	"strings"
-
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
@@ -16,6 +11,8 @@ import (
 	"github.com/terraform-providers/terraform-provider-vsphere/vsphere/internal/helper/virtualmachine"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/vim25/types"
+	"log"
+	"reflect"
 )
 
 var virtualMachineResourceAllocationTypeValues = []string{"cpu", "memory"}
@@ -838,15 +835,7 @@ func flattenVirtualMachineConfigInfo(d *schema.ResourceData, obj *types.VirtualM
 	d.Set("cpu_performance_counters_enabled", obj.VPMCEnabled)
 	d.Set("change_version", obj.ChangeVersion)
 	d.Set("uuid", obj.Uuid)
-
-	sv := strings.TrimPrefix(obj.Version, "vmx-")
-	v, err := strconv.Atoi(sv)
-	if err != nil {
-		return err
-	}
-	d.Set("hardware_version", v)
-
-	d.Set("hardware_version", obj.Version)
+	d.Set("hardware_version", virtualmachine.GetHardwareVersionNumber(obj.Version))
 
 	if err := flattenToolsConfigInfo(d, obj.Tools); err != nil {
 		return err

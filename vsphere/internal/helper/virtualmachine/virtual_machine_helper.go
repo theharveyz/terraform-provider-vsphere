@@ -10,6 +10,7 @@ import (
 	"github.com/vmware/govmomi/vapi/vcenter"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -713,13 +714,12 @@ func Reconfigure(vm *object.VirtualMachine, spec types.VirtualMachineConfigSpec)
 	return task.Wait(tctx)
 }
 
-
 func UpgradeHardwareVersion(vm *object.VirtualMachine, version int) error {
 	log.Printf("[DEBUG] Upgrading virtual machine %q", vm.InventoryPath)
 	ctx, cancel := context.WithTimeout(context.Background(), provider.DefaultAPITimeout)
 	defer cancel()
 	vm.UpgradeVM(ctx, GetHardwareVersionID(version))
-	task, err := vm.Reconfigure(ctx, spec)
+	task, err := vm.UpgradeVM(ctx, GetHardwareVersionID(version))
 	if err != nil {
 		return err
 	}
@@ -882,7 +882,53 @@ func (r MOIDForUUIDResults) UUIDs() []string {
 	return uuids
 }
 
-// Get the hardware version string from integer
+// GetHardwareVersionID gets the hardware version string from integer
 func GetHardwareVersionID(vint int) string {
 	return fmt.Sprintf("vmx-%d", vint)
+}
+
+// GetHardwareVersionNumber gets the hardware version number from string
+func GetHardwareVersionNumber(vstring string) int {
+	v, err := strconv.Atoi(vstring)
+	if err != nil {
+		log.Printf("[DEBUG] Unable to parse hardware version: %s", vstring)
+	}
+	return v
+}
+
+// SetHardwareVersion sets the virtual machine's hardware version.
+func SetHardwareVersion(vm *object.VirtualMachine, d *schema.ResourceData) error {
+	// First get current and target versions and validate
+	tv := GetHardwareVersionID(d.Get("hardware_version").(int))
+	vprops, err := Properties(vm)
+	if err != nil {
+		return err
+	}
+	cv := vprops.Config.Version
+	// Skip the rest if there is no version change.
+	if cv == tv {
+		return nil
+	}
+	if err := ValidateHardwareVersion(cv, tv); err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), provider.DefaultAPITimeout)
+	defer cancel()
+
+	hwString := GetHardwareVersionID(d.Get("hardware_version").(int))
+	task, err := vm.UpgradeVM(ctx, hwString)
+
+	_, err = task.WaitForResult(ctx, nil)
+	return err
+}
+
+func ValidateHardwareVersion(current, target string) error {
+	c := GetHardwareVersionNumber(current)
+	t := GetHardwareVersionNumber(target)
+
+	if t < c {
+		return fmt.Errorf("Cannot downgrade virtual machine hardware version. current: %s, target: %s", current, target)
+	}
+	return nil
 }

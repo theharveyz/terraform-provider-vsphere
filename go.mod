@@ -3,6 +3,7 @@ module github.com/terraform-providers/terraform-provider-vsphere
 go 1.13
 
 require (
+	github.com/Azure/azure-sdk-for-go v36.2.0+incompatible
 	github.com/aws/aws-sdk-go v1.28.8 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0 // indirect
